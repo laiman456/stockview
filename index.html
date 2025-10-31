@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>即時新增股票圖表</title>
+  <style>
+    body {
+      background-color: #000000;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    #charts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .chart-box {
+      width: 80%;
+      height: auto;
+      margin: 20px;
+      border: 1px solid #444;
+      position: relative;
+      padding-top: 30px;
+      background-color: #111;
+    }
+    #controls {
+      margin: 20px;
+      text-align: center;
+    }
+    #symbolInput {
+      padding: 8px;
+      width: 250px;
+    }
+    button {
+      padding: 6px 12px;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+    .delete-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background-color: red;
+      color: white;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      z-index: 9999;
+    }
+    .stock-title {
+      position: absolute;
+      top: 5px;
+      left: 10px;
+      font-weight: bold;
+      font-size: 16px;
+      color: #00ffcc;
+    }
+  </style>
+</head>
+
+<body>
+  <h2 style="text-align:center;">我的股票圖表</h2>
+
+  <div id="controls">
+    <input id="symbolInput" placeholder="輸入股票代號，例如 NASDAQ:TSLA 或 0700.HK">
+    <button onclick="addChart()">新增圖表</button>
+    <button onclick="toggleLayout()">切換排版</button>
+  </div>
+
+  <div id="charts"></div>
+
+  <!-- TradingView 官方 JS -->
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <!-- 引入 SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+  <script>
+    function addChart() {
+      const sym = document.getElementById("symbolInput").value.trim();
+      if (!sym) return;
+      let saved = JSON.parse(localStorage.getItem("symbols") || "[]");
+      if (!saved.includes(sym)) {
+        saved.push(sym);
+        localStorage.setItem("symbols", JSON.stringify(saved));
+        createChart(sym);
+      }
+      document.getElementById("symbolInput").value = "";
+    }
+
+    function createChart(sym) {
+      const idx = document.querySelectorAll(".chart-box").length;
+      const box = document.createElement("div");
+      box.className = "tradingview-widget-container chart-box";
+
+      // 股票名稱
+      const title = document.createElement("div");
+      title.className = "stock-title";
+      title.textContent = sym;
+      box.appendChild(title);
+
+      // 刪除按鈕
+      const delBtn = document.createElement("button");
+      delBtn.className = "delete-btn";
+      delBtn.textContent = "刪除";
+      delBtn.onclick = function() {
+        box.remove();
+        let saved = JSON.parse(localStorage.getItem("symbols") || "[]");
+        saved = saved.filter(s => s !== sym);
+        localStorage.setItem("symbols", JSON.stringify(saved));
+      };
+      box.appendChild(delBtn);
+
+      // 圖表容器
+      const inner = document.createElement("div");
+      inner.id = "chart_" + idx;
+      inner.style.height = "500px";
+      box.appendChild(inner);
+
+      document.getElementById("charts").appendChild(box);
+
+      new TradingView.widget({
+        container_id: inner.id,
+        symbol: sym,
+        interval: "D",
+        range: "14D",
+        autosize: true,
+        theme: "dark",
+        style: "1",
+        locale: "zh_TW",
+        withdateranges: true,
+        hide_side_toolbar: false
+      });
+    }
+
+    let isGrid = false;
+    function toggleLayout() {
+      const charts = document.querySelectorAll(".chart-box");
+      isGrid = !isGrid;
+      charts.forEach(box => {
+        if (isGrid) {
+          box.style.width = "45%";
+        } else {
+          box.style.width = "80%";
+        }
+      });
+    }
+
+    // 初始化 SortableJS
+    new Sortable(document.getElementById("charts"), {
+      animation: 150,
+      onEnd: function () {
+        // 拖曳結束後更新 localStorage 順序
+        const boxes = document.querySelectorAll(".chart-box .stock-title");
+        const newOrder = Array.from(boxes).map(el => el.textContent);
+        localStorage.setItem("symbols", JSON.stringify(newOrder));
+      }
+    });
+
+    window.onload = function () {
+      let saved = JSON.parse(localStorage.getItem("symbols") || "[]");
+      saved.forEach(sym => createChart(sym));
+    };
+  </script>
+</body>
+</html>
